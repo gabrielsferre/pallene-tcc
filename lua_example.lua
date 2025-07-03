@@ -1,0 +1,12 @@
+local m = require("example")
+--print(m.calling(0))
+--print(m.calling(1))
+--print(m.calling(-1))
+--print(m.subst())
+--print("starting...")
+--m.checkgc(10000000)
+--m.checkgc(1)
+--print(m.gctest(2))
+local n = 10
+--local arr,arr2 = m.fill_array2(n)
+--print(arr2[1])

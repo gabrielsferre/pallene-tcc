@@ -13,72 +13,91 @@ local flow = require "pallene.flow"
 
 local uninitialized = {}
 
+local function cmd_sets_value_of_local_upvalue_box(cmd)
+    return cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box and
+                cmd.src_rec._tag == "ir.Value.LocalVar"
+end
+
+local function make_uninitialized_framework(func)
+    local entry_constant_set = {}
+    local nvars = #func.vars
+    local nargs = #func.typ.arg_types
+    for var_id = 1, nvars do
+        local is_function_argument = var_id <= nargs
+        if not is_function_argument then
+            entry_constant_set[var_id] = true
+        end
+    end
+
+    local function cmd_transfer_function(block_i, cmd_i, gk)
+        local cmd = func.blocks[block_i].cmds[cmd_i]
+        -- `SetField` instructions can count as initializers when the target is an upvalue box. This
+        -- is because upvalue boxes are allocated, but not initialized upon declaration.
+        if cmd_sets_value_of_local_upvalue_box(cmd) then
+            gk:kill(assert(cmd.src_rec.id))
+        end
+
+        -- Artificial initializers introduced by the compiler do not count.
+        if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
+            for _, v_id in ipairs(ir.get_dsts(cmd)) do
+                gk:kill(v_id)
+            end
+        end
+    end
+
+    local args = flow.SetFrameworkArguments()
+    args.direction             = flow.Order.Forward
+    args.set_operation         = flow.SetOperation.Union
+    args.entry_constant_set    = entry_constant_set
+    args.cmd_transfer_function = cmd_transfer_function
+    args.block_list            = func.blocks
+    local framework = flow.make_set_framework(args)
+
+    return framework
+end
+
 function uninitialized.verify_variables(module)
 
     local errors = {}
 
     for _, func in ipairs(module.functions) do
 
-        local nvars = #func.vars
-        local nargs = #func.typ.arg_types
-
-        -- solve flow equations
-        local function init_start(start_set, block_index)
-            if block_index == 1 then
-                for v_i = nargs+1, nvars do
-                    start_set[v_i] = true
-                end
-            end
-        end
-
-        local function compute_gen_kill(block_i, cmd_i)
-            local cmd = func.blocks[block_i].cmds[cmd_i]
-            local gk = flow.GenKill()
-            for _, src in ipairs(ir.get_srcs(cmd)) do
-                if src._tag == "ir.Value.LocalVar" then
-                    -- `SetField` instructions can count as initializers when the target is an
-                    -- upvalue box. This is because upvalue boxes are allocated, but not initialized
-                    -- upon declaration.
-                    if cmd._tag == "ir.Cmd.SetField" and cmd.rec_typ.is_upvalue_box then
-                        flow.kill_value(gk, src.id)
-                    end
-                end
-            end
-
-            -- Artificial initializers introduced by the compilers do not count.
-            if not (cmd._tag == "ir.Cmd.NewRecord" and cmd.rec_typ.is_upvalue_box) then
-                for _, v_id in ipairs(ir.get_dsts(cmd)) do
-                    flow.kill_value(gk, v_id)
-                end
-            end
-            return gk
-        end
-
-        local flow_info = flow.FlowInfo(flow.Order.Forward, compute_gen_kill, init_start)
-        local sets_list = flow.flow_analysis(func.blocks, flow_info)
+        local framework = make_uninitialized_framework(func)
+        local uninit = flow.flow_analysis(func.blocks, framework)
 
         -- check for errors
         local reported_variables = {} -- (only one error message per variable)
+
+        local function report_error_if_uninitialized(cmd_uninit, src, loc)
+            if src._tag == "ir.Value.LocalVar" and cmd_uninit[src.id] then
+                local v = src.id
+                if not reported_variables[v] then
+                    reported_variables[v] = true
+                    local name = assert(func.vars[v].name)
+                    table.insert(errors, loc:format_error(
+                        "error: variable '%s' is used before being initialized", name))
+                end
+            end
+        end
+
         for block_i, block in ipairs(func.blocks) do
-            local uninit = sets_list[block_i]
+            local block_uninit = uninit[block_i].cmds
             for cmd_i, cmd in ipairs(block.cmds) do
+                local cmd_uninit = block_uninit[cmd_i]
                 local loc = cmd.loc
-                flow.update_set(uninit, flow_info, block_i, cmd_i)
-                for _, src in ipairs(ir.get_srcs(cmd)) do
-                    local v = src.id
-                    if src._tag == "ir.Value.LocalVar" and uninit[v] then
-                        if not reported_variables[v] then
-                            reported_variables[v] = true
-                            local name = assert(func.vars[v].name)
-                            table.insert(errors, loc:format_error(
-                                "error: variable '%s' is used before being initialized", name))
-                        end
+                if cmd_sets_value_of_local_upvalue_box(cmd) then
+                    -- setting the value of a boxed upvalue counts as writing to the variable
+                    -- instead of reading it, so we don't check if cmd.src_rec is initialized here
+                    report_error_if_uninitialized(cmd_uninit, assert(cmd.src_v), loc)
+                else
+                    for _, src in ipairs(ir.get_srcs(cmd)) do
+                        report_error_if_uninitialized(cmd_uninit, src, loc)
                     end
                 end
             end
         end
 
-        local exit_uninit = sets_list[#func.blocks]
+        local exit_uninit = uninit[#func.blocks].finish
         if #func.ret_vars > 0 then
             local ret1 = func.ret_vars[1]
             if exit_uninit[ret1] then

@@ -73,6 +73,21 @@ function util.set_file_contents(file_name, contents)
     return true
 end
 
+function util.deep_copy(original)
+    local original_type = type(original)
+    local copy
+    if original_type == 'table' then
+        copy = {}
+        for key, value in pairs(original) do
+            copy[util.deep_copy(key)] = util.deep_copy(value)
+        end
+        setmetatable(copy, getmetatable(original))
+    else
+        copy = original
+    end
+    return copy
+end
+
 -- Quotes a command-line argument according to POSIX shell syntax.
 -- Uses a whitelist of safe chars to avoid quoting too much
 function util.shell_quote(str)
@@ -124,6 +139,46 @@ function util.Class()
     end
 
     return cls
+end
+
+function util.define_local_tagged_union(type_name, constructors)
+    local function is_valid_name_component(s)
+        -- In particular this does not allow ".", which is our separator
+        return string.match(s, "[A-Za-z_][A-Za-z_0-9]*")
+    end
+
+    local function make_tag(typ, const)
+        assert(is_valid_name_component(typ))
+        assert(is_valid_name_component(const))
+        local tag = typ .. "." .. const
+        return tag
+    end
+
+    local cons_table = {}
+    for cons_name, fields in pairs(constructors) do
+        local tag = make_tag(type_name, cons_name)
+
+        local cons
+        if #fields == 0 then
+            cons = { _tag = tag }
+        else
+            cons = function(...)
+                local args = table.pack(...)
+                if args.n ~= #fields then
+                    error(string.format(
+                        "wrong number of arguments for %s. Expected %d but received %d.",
+                        cons_name, #fields, args.n))
+                end
+                local node = { _tag = tag }
+                for i, field in ipairs(fields) do
+                    node[field] = args[i]
+                end
+                return node
+            end
+        end
+        cons_table[cons_name] = cons
+    end
+    return cons_table
 end
 
 return util

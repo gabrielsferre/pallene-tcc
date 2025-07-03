@@ -1,0 +1,161 @@
+-- Copyright (c) 2020, The Pallene Developers
+-- Pallene is licensed under the MIT license.
+-- Please refer to the LICENSE and AUTHORS files for details
+-- SPDX-License-Identifier: MIT
+
+local m: module = {}
+
+--function m.subst():string
+--    local s:string = string.char(97)
+--    return s
+--end
+
+--function m.gctest(x:integer):integer
+--    local a:{integer} = {13}
+--    local b = 22
+--    if x > 0 then
+--        b = a[1]
+--    end
+--    return b
+--end
+
+--local global_var:integer = 4
+--local function called(a:integer, b:integer):integer
+--    local c:integer = a + b;
+--    if a > 0 then
+--        return b
+--    else
+--        return global_var
+--    end
+--end
+--
+--function m.calling(a:integer):integer
+--    if a > 0 then
+--        return called(1,2)
+--    elseif a < 0 then
+--        return called(-2,2)
+--    else
+--        return 0
+--    end
+--end
+
+--function m.fill_array(n:integer):{integer}
+--    local arr_i:{integer} = {}
+--    local arr_a:{integer} = {}
+--    arr_i = arr_a
+--    for i = 1, n do
+--        local a:integer = i * 2 + 4
+--        arr_i[i] = a
+--    end
+--    return arr_i
+--end
+--
+--function m.fill_array2(n:integer):(
+--{integer},
+--{integer},
+--{integer},
+--{integer},
+--{integer},
+--{integer},
+--{integer},
+--{integer},
+--{integer},
+--{integer}
+--)
+--    local arr01:{integer} = {}
+--    local arr02:{integer} = {}
+--    local arr03:{integer} = {}
+--    local arr04:{integer} = {}
+--    local arr05:{integer} = {}
+--    local arr06:{integer} = {}
+--    local arr07:{integer} = {}
+--    local arr08:{integer} = {}
+--    local arr09:{integer} = {}
+--    local arr10:{integer} = {}
+--    for i = 1, n do
+--        arr01[i] = i
+--        arr02[i] = i
+--        arr03[i] = i
+--        arr04[i] = i
+--        arr05[i] = i
+--        arr06[i] = i
+--        arr07[i] = i
+--        arr08[i] = i
+--        arr09[i] = i
+--        arr10[i] = i
+--    end
+--    return
+--        arr01,
+--        arr02,
+--        arr03,
+--        arr04,
+--        arr05,
+--        arr06,
+--        arr07,
+--        arr08,
+--        arr09,
+--        arr10
+--end
+--
+--function m.teste_renormalize(n:integer):{integer}
+--    local arr:{integer} = {11,13,17}
+--    for i = 4, n do
+--        if i > 1000 then
+--            break
+--        end
+--        arr[i] = 19
+--    end
+--    return arr
+--end
+
+function m.matmul(A: {{float}}, B:{{float}}): {{float}}
+    local C: {{float}} = {}
+    local NI = #A
+    local NK = #B
+    local NJ = #B[1]
+    for i = 1, NI do
+        local line: {float} = {}
+        for j = 1, NJ do
+            line[j] = 0.0
+        end
+        C[i] = line
+    end
+    for k = 1, NK do
+        local Bk = B[k]
+        for i = 1, NI do
+            local Aik = A[i][k]
+            local Ci = C[i]
+            for j = 1, NJ do
+                Ci[j] = Ci[j] + Aik * Bk[j]
+            end
+        end
+    end
+    return C
+end
+
+--function m.inc_loop_array(limite:integer):integer
+--    local soma:{integer} = {0}
+--    while soma[1] < limite do
+--        soma[1] = soma[1] + 1
+--    end
+--    return soma[1]
+--end
+
+--function m.checkgc(iterations:integer)
+--    local i:integer = 1;
+--    while i < iterations do
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        string.char(97)
+--        i = i + 1
+--    end
+--end
+
+return m

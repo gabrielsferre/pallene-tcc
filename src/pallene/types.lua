@@ -97,6 +97,29 @@ function types.is_indexable(t)
     end
 end
 
+function types.is_reference(t)
+    local tag = t._tag
+    if     tag == "types.T.Table" or
+           tag == "types.T.Record" or
+           tag == "types.T.Any" or
+           tag == "types.T.Array"
+    then
+        return true
+
+    elseif tag == "types.T.Nil" or
+           tag == "types.T.Boolean" or
+           tag == "types.T.Integer" or
+           tag == "types.T.Float" or
+           tag == "types.T.String" or
+           tag == "types.T.Function"
+    then
+        return false
+
+    else
+        tagged_union.error(tag)
+    end
+end
+
 function types.indices(t)
     local tag = t._tag
     if     tag == "types.T.Table" then

@@ -1,0 +1,13 @@
+binarytrees 16 1
+binsearch 100000000 1000000
+centroid 10000 50000
+conway 500 1
+fannkuchredux 11 1
+fasta 4000000 1
+mandelbrot 4000 1
+matmul 250 50
+nbody 15000000 1
+objmandelbrot 350 1
+queen 13 1
+sieve 150000 1000
+spectralnorm 4500 1

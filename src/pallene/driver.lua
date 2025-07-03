@@ -11,7 +11,6 @@
 local c_compiler = require "pallene.c_compiler"
 local typechecker = require "pallene.typechecker"
 local assignment_conversion = require "pallene.assignment_conversion"
-local constant_propagation = require "pallene.constant_propagation"
 local coder = require "pallene.coder"
 local Lexer = require "pallene.Lexer"
 local parser = require "pallene.parser"
@@ -19,6 +18,10 @@ local to_ir = require "pallene.to_ir"
 local uninitialized = require "pallene.uninitialized"
 local util = require "pallene.util"
 local translator = require "pallene.translator"
+local gc = require "pallene.gc"
+local constant_propagation = require "pallene.constant_propagation"
+local renormalize_opt = require "pallene.renormalize_opt"
+--local func_inline = require "pallene.func_inline"
 
 local driver = {}
 
@@ -89,8 +92,12 @@ function driver.compile_internal(filename, input, stop_after, opt_level)
     if not module then return abort() end
     if stop_after == "uninitialized" then return module end
 
+
     if opt_level > 0 then
+        --module, errs = func_inline.run(module)
         module, errs = constant_propagation.run(module)
+        module, errs = renormalize_opt.run(module)
+        module, errs = gc.optimize_gc_checks(module)
         if not module then return abort() end
         if stop_after == "constant_propagation" then return module end
     end
